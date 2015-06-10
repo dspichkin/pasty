@@ -28,13 +28,33 @@ class Pasty(models.Model):
             return None
         return Pasty.objects.order_by('?')[0]
 
+    def is_alredy_exists(self):
+        """
+        Check is alredy exists in base
+        """
+        pasty = Pasty.objects.filter(text=self.text)
+        if not pasty:
+            return False
+        else:
+            return True
+
+TYPE_SOURCE_WEB = 1
+TYPE_SOURCE_RSS = 0
+
 
 class Source(models.Model):
+
+    TYPE_SOURCES = (
+        (TYPE_SOURCE_WEB, 'Web'),
+        (TYPE_SOURCE_RSS, 'Feed')
+    )
+
     title = models.TextField(u'Название источника')
     url = models.URLField(u'Ссылка')
     sync_url = models.URLField(u'URL синхронизации', blank=True)
     sync_date = models.DateTimeField(u'Дата последней синхронизации', blank=True, null=True)
     parser_pattern = re.compile('[.-]')
+    type_source = models.PositiveSmallIntegerField('Тип источника', choices=TYPE_SOURCES, default=0)
 
     def __unicode__(self):
         return self.title

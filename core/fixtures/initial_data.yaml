@@ -1,17 +1,12 @@
-- model: core.source
+- fields: {sync_url: 'http://www.perashki.ru/Piro/New/',
+    title: perashki.ru, type_source: 1, url: 'http://www.perashki.ru/'}
+  model: core.source
   pk: 1
-  fields:
-    title: perashki.ru
-    url: http://www.perashki.ru/
-- model: core.source
+- fields: {sync_url: 'http://pirozhki-ru.livejournal.com/data/rss',
+    title: pirozhki-ru.livejournal.com, type_source: 0, url: 'http://pirozhki-ru.livejournal.com/'}
+  model: core.source
   pk: 2
-  fields:
-    title: pirozhki-ru.livejournal.com
-    url: http://pirozhki-ru.livejournal.com/
-    sync_url: http://pirozhki-ru.livejournal.com/data/rss
-- model: core.source
+- fields: {sync_url: 'http://www.stishkipirozhki.ru/rss/',
+    title: stishkipirozhki.ru, type_source: 0, url: 'http://www.stishkipirozhki.ru/'}
+  model: core.source
   pk: 3
-  fields:
-    title: stishkipirozhki.ru
-    url: http://www.stishkipirozhki.ru
-    sync_url: http://www.stishkipirozhki.ru/?feed=rss2

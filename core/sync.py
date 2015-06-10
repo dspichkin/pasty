@@ -1,7 +1,11 @@
 from datetime import datetime
-import os, re
+import os
+import re
 import feedparser
-from core.models import Pasty
+import urllib2
+from BeautifulSoup import BeautifulSoup
+
+from core.models import Pasty, TYPE_SOURCE_WEB, TYPE_SOURCE_RSS
 
 
 def sync_rss_source(source):
@@ -10,20 +14,43 @@ def sync_rss_source(source):
         return
     print('feeding data from ' + source.title)
     try:
-        data = feedparser.parse(source.sync_url)
-        sync_date = to_date(data.feed.updated_parsed)
-        if source.sync_date and source.sync_date >= sync_date:
-            print('source is already up to date')
-            return
-        for entry in data.entries:
-            pastry = globals()[source.parser()](sync_date, source, entry)
-            # Save only if pastry is newer than previous sync date
-            if pastry and (not source.sync_date or pastry.date > source.sync_date):
-                pastry.save()
-                print('saved pastry %s' % pastry)
-        source.sync_date = sync_date
-        source.save()
-        print('successful sync for date %s' % sync_date)
+        if source.type_source == TYPE_SOURCE_RSS:
+            data = feedparser.parse(source.sync_url)
+            sync_date = datetime.now()
+            if hasattr(data.feed, 'updated_parsed'):
+                sync_date = to_date(data.feed.updated_parsed)
+            if source.sync_date and source.sync_date >= sync_date:
+                print('source is already up to date\n')
+                return
+            count = 0
+            for entry in data.entries:
+                pastry = globals()[source.parser()](sync_date, source, entry)
+                # Save only if pastry is newer than previous sync date
+                if pastry and (not source.sync_date or pastry.date > source.sync_date):
+                    pastry.save()
+                    count += 1
+            source.sync_date = sync_date
+            source.save()
+            print('successful sync for date %s pastry number %s\n' % (sync_date, count))
+
+        if source.type_source == TYPE_SOURCE_WEB:
+            web_page = urllib2.urlopen(source.sync_url).read()
+            soup = BeautifulSoup(web_page)
+            data = soup.findAll('div', {'class': 'PiroEntry'})
+            sync_date = datetime.now()
+            if source.sync_date and source.sync_date >= sync_date:
+                print('source is already up to date\n')
+                return
+            count = 0
+            for entry in data:
+                pastry = globals()[source.parser()](sync_date, source, str(entry))
+                if pastry and (not source.sync_date or pastry.is_alredy_exists() is False):
+                    pastry.save()
+                    count += 1
+            source.sync_date = sync_date
+            source.save()
+            print('successful sync for date %s pastry number %s\n' % (sync_date, count))
+
     except Exception as e:
         print('sync failed: %s' % e)
 
@@ -39,6 +66,7 @@ def strip(text):
     text = br_pattern.sub(os.linesep, text)
     return text
 
+
 def to_date(feed_date):
     if not feed_date:
         return None
@@ -49,7 +77,8 @@ def pirozhki_ru_livejournal_com(sync_date, source, entry):
     p = Pasty()
     p.text = strip(entry['summary_detail']['value'])
     p.date = to_date(entry['published_parsed'])
-    if not p.date: p.date = sync_date
+    if not p.date:
+        p.date = sync_date
     p.source = source.url
     if len(p.text) > 255:
         return None
@@ -58,8 +87,24 @@ def pirozhki_ru_livejournal_com(sync_date, source, entry):
 
 def stishkipirozhki_ru(sync_date, source, entry):
     p = Pasty()
-    p.text = strip(entry['content'][0]['value'])
-    p.date = to_date(entry['published_parsed'])
-    if not p.date: p.date = sync_date
+    p.text = strip(entry['summary_detail']['value'])
+    p.date = datetime.strptime(entry['published'], '%Y-%m-%d %H:%M:%S')
+    if not p.date:
+        p.date = sync_date
+    p.source = source.url
+    return p
+
+
+def perashki_ru(sync_date, source, entry):
+    p = Pasty()
+    soup = BeautifulSoup(entry)
+    p.text = soup.find('div', {'class': 'Text'}).contents[0]
+    votes = soup.find('div', {'class': 'Info VotePlus'}).find('span', {'class': 'club'}).contents[0]
+    p.votes = votes
+    date = soup.find('span', {'class': 'date'}).contents[0]
+    if not date:
+        p.date = sync_date
+    else:
+        p.date = datetime.strptime(date, '%d.%m.%Y')
     p.source = source.url
     return p
